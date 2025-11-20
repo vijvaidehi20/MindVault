@@ -30,8 +30,8 @@ const VaultAI: React.FC<VaultAIProps> = ({ initialChatId, onNewChatIdCreated }) 
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
-    // We should use the prop directly for the chatId when loading, or null when starting fresh.
-    const [currentChatIdState, setCurrentChatIdState] = useState<string | null>(initialChatId); 
+    // Start with no chat loaded so the effect will fetch when initialChatId is provided.
+    const [currentChatIdState, setCurrentChatIdState] = useState<string | null>(null);     
     
     const chatEndRef = useRef<HTMLDivElement>(null);
     const { addSession } = useChatHistory(); 
@@ -54,32 +54,27 @@ const VaultAI: React.FC<VaultAIProps> = ({ initialChatId, onNewChatIdCreated }) 
         
         // 1. If a chat ID is passed and it's valid, load it.
         if (initialChatId && token) {
-            
-            // If the chat ID passed is different from the one currently loaded, reset and load
+            // Always fetch the chat when a (new) initialChatId is provided
             if (initialChatId !== currentChatIdState) {
                 setCurrentChatIdState(initialChatId);
                 setIsLoading(true);
 
-                const loadChat = async () => {
-                    try {
-                        const res = await fetch(`http://127.0.0.1:5000/api/vaultai/chat/${initialChatId}`, {
-                            headers: { "x-auth-token": token },
-                        });
-                        
-                        if (!res.ok) throw new Error("Failed to load chat history.");
-                        
-                        const data = await res.json();
-                        
-                        const loadedMessages: Message[] = data.messages.map((msg: any, index: number) => ({
-                            id: index + 3,
-                            sender: msg.role === 'user' ? 'user' : 'bot',
-                            content: msg.message,
-                        }));
-                        
-                        setMessages(loadedMessages);
-                    } catch (error) {
-                        console.error("History loading error:", error);
-                        setMessages([
+               const loadChat = async () => {
+                   try {
+                       const res = await fetch(`http://127.0.0.1:5000/api/vaultai/chat/${initialChatId}`, {
+                           headers: { "x-auth-token": token },
+                       });
+                       if (!res.ok) throw new Error("Failed to load chat history.");
+                       const data = await res.json();
+                       const loadedMessages: Message[] = data.messages.map((msg: any, index: number) => ({
+                           id: index + 3,
+                           sender: msg.role === 'user' ? 'user' : 'bot',
+                           content: msg.message,
+                       }));
+                       setMessages(loadedMessages);
+                   } catch (error) {
+                       console.error("History loading error:", error);
+                       setMessages([
                             { id: 1, sender: 'bot', content: "Error loading conversation. Please start a new chat."}
                         ]);
                     } finally {
@@ -88,7 +83,7 @@ const VaultAI: React.FC<VaultAIProps> = ({ initialChatId, onNewChatIdCreated }) 
                 };
                 loadChat();
             }
-        } 
+        }
         // 2. If the prop is null, reset the component to the "new chat" state
         else if (!initialChatId && currentChatIdState !== null) {
              setCurrentChatIdState(null);

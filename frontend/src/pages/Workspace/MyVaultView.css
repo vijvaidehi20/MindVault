@@ -88,6 +88,16 @@
   box-shadow: 0 0 8px rgba(160, 32, 240, 0.3);
 }
 
+/* Real red delete button */
+.select-multiple-btn.delete-red {
+  background-color: red !important;
+}
+.select-multiple-btn.delete-red:hover {
+  background-color: #cc0000 !important;
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.3);
+}
+
+/* Upload Button */
 .upload-btn {
   background-color: #a020f0 !important;
   color: white;
@@ -104,42 +114,24 @@
   box-shadow: 0 0 8px rgba(160, 32, 240, 0.3);
 }
 
+/* Plus button: keep height same, increase width slightly */
 .create-plus-btn {
-  width: 45px;
-  height: 45px;
+  width: 50px !important;     /* increased width */
+  height: 40px !important;    /* keep original height */
   background-color: #a020f0 !important;
   color: white;
   font-weight: bold;
+  font-size: 1.1rem !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  padding: 0 8px !important;
 }
 
 .create-plus-btn:hover {
   background-color: #8c10e0 !important;
-  transform: scale(1.05);
+  transform: scale(1.03);
   box-shadow: 0 0 8px rgba(160, 32, 240, 0.3);
-}
-
-.create-plus-btn::before,
-.create-plus-btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: white;
-}
-
-.create-plus-btn::before {
-  width: 40%;
-  height: 3px;
-}
-
-.create-plus-btn::after {
-  width: 3px;
-  height: 40%;
 }
 
 .filter-controls {
@@ -157,6 +149,7 @@
   position: relative;
 }
 
+/* Keep dropdown-button arrow behavior exactly as earlier (no changes) */
 .dropdown-button {
   display: flex;
   align-items: center;
@@ -185,20 +178,35 @@
   transform: rotate(180deg);
 }
 
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.5rem;
+  background-color: #292929;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  z-index: 1001;
+  list-style: none;
+  padding: 0.25rem 0;
+  min-width: 100px;
+}
+
+/* Center dropdown text */
 .dropdown-menu li {
   padding: 0.75rem 1rem;
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.25s ease;
   border-radius: 6px;
-  text-align: center;
+  text-align: center !important;
   color: white;
   background-color: transparent;
 }
 
 .dropdown-menu li:hover {
-  color: #a020f0; /* text changes to purple */
-  background-color: rgba(255, 255, 255, 0.08); /* simple light-up shine */
+  color: #a020f0;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .view-buttons {
@@ -223,6 +231,7 @@
   color: #a020f0;
 }
 
+/* File content wrapper */
 .file-content-wrapper {
   flex-grow: 1;
   display: flex;
@@ -241,23 +250,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-}
-
-.empty-vault-box .file-icons {
-  margin-top: 4.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.empty-vault-box p {
-  white-space: nowrap;
-}
-
-.create-materials-section {
-  padding: 2rem;
-  background-color: transparent;
-  border-radius: 12px;
-  text-align: center;
-  margin-top: 0.5rem;
 }
 
 .file-icons {
@@ -279,7 +271,7 @@
   border: 2px solid white;
 }
 
-/* File Views */
+/* Grid view */
 .files-grid-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -302,105 +294,151 @@
   border-radius: 12px;
   padding: 1rem;
   text-align: center;
+  align-items: center;
+  position: relative;
+  color: white;
+  overflow: visible; /* allow dropdown to appear */
+}
+
+/* Center content */
+.file-item-grid {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 160px;
+  height: 160px;
+  padding-bottom: 0.5rem;
+  padding-top: 2rem;
+  position: relative;
+}
+
+.file-item-content-center {
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  color: white;
+  justify-content: center;
+  height: 100%;
 }
 
 .file-item-details {
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 1rem;
+  min-height: 70px;
+  text-align: left;
+}
+
+.file-name {
+  flex-grow: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  text-align: center;
 }
 
 .file-item-details .file-name {
-  flex-grow: 1;
+  text-align: left;
+  -webkit-line-clamp: 2;
 }
 
-.file-icon {
-  font-size: 2rem;
-}
-
-/* File Options Button */
-.file-options-container,
-.file-options-container-details {
+/* 3-dots inside card, top-right */
+.file-options-container {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   z-index: 100;
-}
-
-.file-options-container-details {
-  position: relative;
-  top: auto;
-  right: auto;
-  margin-left: auto;
-}
-
-.file-options-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 1.3rem;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
+  background-color: transparent;
+  padding: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
 }
 
-/* File Dropdown */
+/* details view options container */
+.file-options-container-details {
+  position: relative;
+  margin-left: auto;
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Make the 3-dot button visible and with subtle bg */
+.file-options-btn {
+  background: rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(255,255,255,0.3) !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+}
+
+/* Dropdown for file options - aligned to the right of the options button and shifted left slightly so it doesn't overflow */
 .file-dropdown-menu {
   position: absolute;
-  top: 0;
-  left: 100%;
-  margin-left: 0.5rem;
+  top: 28px; /* slightly below the options button */
+  right: 0;
+  transform: translateX(-8px); /* shift left so it doesn't overflow */
+  margin-top: 0.25rem;
   background-color: #292929;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.3);
   z-index: 1001;
   list-style: none;
   padding: 0.25rem 0;
-  min-width: 140px;
+  min-width: 160px;
   color: white;
-  transition: all 0.2s ease;
 }
 
+/* flip-left used when the dropdown would go beyond left edge */
 .file-dropdown-menu.flip-left {
-  left: auto;
-  right: 100%;
-  margin-left: 0;
-  margin-right: 0.5rem;
+  right: auto;
+  left: 0;
+  transform: translateX(-12px);
 }
 
+/* Center dropdown items */
 .file-dropdown-menu li {
   padding: 0.75rem 1rem;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   border-radius: 6px;
-  text-align: center;
+  text-align: center !important;
   color: white;
   background-color: transparent;
 }
 
-.file-dropdown-menu li:not(.move-to-trash):hover {
+.file-dropdown-menu li:hover {
   color: #a020f0;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255,255,255,0.08);
 }
 
+/* Move to Trash stays red */
 .file-dropdown-menu .move-to-trash {
   color: red;
   font-weight: 500;
 }
-
 .file-dropdown-menu .move-to-trash:hover {
-  color: red; /* stays red */
-  background-color: rgba(255, 0, 0, 0.15); /* soft red shade */
+  color: red;
+  background-color: rgba(255,0,0,0.15);
+}
+
+/* White translucent divider - displayed BELOW History item */
+.file-divider {
+  margin: 0.25rem 0;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.18);
 }
 
 /* Uploaded files container */
@@ -410,167 +448,273 @@
   padding: 1rem;
   width: 100%;
   min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
 }
 
-/* --- File Chat Modal --- */
+/* CLEAN CUSTOM CHECKBOX */
+/* Unchecked state */
+.file-select-checkbox {
+  width: 22px;
+  height: 22px;
+  border: 2px solid white;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+/* When selected, keep border white and show only the tick (no fill) */
+.file-item-grid.selected .file-select-checkbox,
+.file-item-details.selected .file-select-checkbox {
+  border-color: white !important;
+  background: transparent !important;
+}
+
+/* ****************** */
+/* Smart Chat Modal (non-fullscreen modal overlay) */
+/* ****************** */
+.file-chat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 1rem;
+}
+
 .file-chat-modal {
+  width: 1100px;           /* moderate width, not full-screen */
+  max-width: calc(100% - 40px);
+  height: 82vh;
+  background: #1f1f1f;
+  border-radius: 12px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+/* Chat header */
+.file-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.file-chat-header .back-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.file-chat-header .name-chat-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.file-chat-header .name-chat-btn:hover {
+  border-color: #a020f0 !important; /* purple outline on hover */
+}
+
+.file-chat-header span {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Chat body */
+.file-chat-body {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0));
+}
+
+/* Chat message bubble styles */
+.chat-bubble {
+  max-width: 72%;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: #e9e9e9;
+  line-height: 1.35;
+}
+
+/* user bubble aligned right */
+.chat-bubble.user {
+  margin-left: auto;
+  background: rgba(160,32,240,0.12);
+  color: white;
+}
+
+/* assistant bubble (default) */
+.chat-bubble.assistant {
+  margin-right: auto;
+  background: rgba(255,255,255,0.03);
+}
+
+/* Placeholder centered like GPT when chat empty */
+.chat-placeholder-message {
+  text-align: center;
+  padding-top: 11rem;
+  color: #ccc;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+/* Quick action bubbles just above the input */
+.quick-actions-container {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem 0.2rem 1rem;
+  flex-wrap: wrap;
+}
+
+.quick-action-bubble {
+  background: rgba(255,255,255,0.04);
+  padding: 0.45rem 0.9rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: white;
+  cursor: pointer;
+  font-size: 0.92rem;
+  transition: all 0.18s ease;
+}
+
+.quick-action-bubble:hover {
+  background: rgba(160,32,240,0.14);
+  border-color: #a020f0;
+}
+
+/* Chat input area */
+.file-chat-input-container {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0));
+}
+
+.file-chat-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background-color: rgba(255,255,255,0.03);
+  color: white;
+  outline: none;
+}
+
+/* Outline white on focus (no glow) */
+.file-chat-input:focus {
+  border-color: white !important;
+  box-shadow: none !important;
+}
+
+/* Send button with up-arrow */
+.file-chat-send-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: #a020f0;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(160,32,240,0.18);
+}
+
+/* Preview modal (kept earlier styles) */
+.file-preview-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(50,50,50,0.98);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 1rem 2rem;
-  z-index: 2000;
-  box-sizing: border-box;
-  color: white;
-}
-
-.file-chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.chat-header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.back-btn,
-.name-chat-btn,
-.save-chat-btn {
-  background: #a020f0;
-  border: none;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.back-btn:hover,
-.name-chat-btn:hover,
-.save-chat-btn:hover {
-  background-color: #8c10e0;
-  transform: scale(1.05);
-  box-shadow: 0 0 8px rgba(160,32,240,0.3);
-}
-
-.file-chat-header span {
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-/* --- Chat Body --- */
-.file-chat-body {
-  flex-grow: 1;
+  background-color: rgba(0, 0, 0, 0.85); 
   display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  font-size: 1.5rem;
-  color: #ccc;
+  z-index: 3000; 
+  padding: 1rem;
 }
 
-.file-chat-placeholder {
-  margin: 0;
-}
-
-/* --- Input + Send Button Container --- */
-.file-chat-input-container {
-  width: 100%;
-  padding: 0.5rem 0;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.file-chat-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.file-chat-input {
-  flex-grow: 1;
-  padding: 0.75rem 1rem;
-  border-radius: 25px;
-  border: 2px solid #444;
+.file-preview-modal-content {
   background-color: #292929;
   color: white;
-  font-size: 1rem;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.2s ease;
-}
-
-.file-chat-input:focus {
-  border-color: #a020f0;
-  box-shadow: none;
-}
-
-.file-chat-input::placeholder {
-  color: #aaa;
-}
-
-.file-chat-send-btn {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  background-color: #a020f0;
-  color: white;
-  border: none;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 1000px; 
+  height: 90%;
+  max-height: 800px;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+.file-preview-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: all 0.2s ease;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #444;
   flex-shrink: 0;
 }
 
-.file-chat-send-btn:hover {
-  background-color: #8c10e0;
-  transform: scale(1.05);
-}
-
-/* --- Action buttons below prompt --- */
-.file-chat-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.file-chat-actions button {
-  padding: 0.6rem 1.2rem;
-  border-radius: 18px;
-  background-color: #444;
-  color: white;
-  border: none;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.file-chat-actions button:hover {
-  background-color: #a020f0;
-}
-
-.empty-vault-box p.upload-hint {
+.file-preview-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  overflow: hidden;
   white-space: nowrap;
-  color: #d0d0c0; /* soft creamy grayish color */
-  font-size: 0.95rem; /* slightly smaller */
-  margin-top: 0.25rem; /* optional: a little spacing below main text */
+  text-overflow: ellipsis;
+}
+
+.file-preview-header .close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+  padding: 0 0.5rem;
+}
+
+.file-preview-header .close-btn:hover {
+  color: #a020f0;
+}
+
+.file-preview-body {
+  flex-grow: 1;
+  padding: 0; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: #111;
+}
+
+.file-preview-body embed,
+.file-preview-body iframe,
+.file-preview-body object {
+  width: 100%;
+  height: 100%;
 }

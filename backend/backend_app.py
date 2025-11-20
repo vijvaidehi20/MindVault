@@ -12,8 +12,8 @@ import fitz  # PyMuPDF for PDF
 import google.generativeai as genai
 import jwt
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, Response
-from flask_cors import CORS # type: ignore
+from flask import Flask, request, jsonify, Response, send_file
+from flask_cors import CORS  # type: ignore
 from flask_mongoengine import MongoEngine
 from pptx import Presentation  # python-pptx for PowerPoint
 
@@ -33,27 +33,28 @@ CORS(app,
      supports_credentials=True,
      methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"])
 
-
 app.config['MONGODB_SETTINGS'] = {
     'db': 'mindvault_db',
     'host': os.getenv('MONGO_URI')
 }
-app.config['JWT_SECRET'] = os.getenv('JWT_SECRET')
+app.config['JWT_SECRET'] = os.getenv('JWT_SECRET') or 'secret-dev'
 db = MongoEngine(app)
 
+# ---------------- STORAGE FOLDERS ----------------
 TEMP_UPLOAD_FOLDER = 'temp_uploads'
+MY_VAULT_FOLDER = 'myvault_files'
 os.makedirs(TEMP_UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(MY_VAULT_FOLDER, exist_ok=True)
 
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 if not gemini_api_key:
     print("⚠️ WARNING: GEMINI_API_KEY environment variable not set.")
 genai.configure(api_key=gemini_api_key)
 
-# ---------------- TOKEN REQUIRED (Updated) ----------------
+# ---------------- TOKEN DECORATOR ----------------
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        # Accept both Authorization: Bearer <token> and x-auth-token
         auth_header = request.headers.get('Authorization')
         token = None
         if auth_header and auth_header.startswith('Bearer '):
@@ -79,6 +80,36 @@ class User(db.Document):
     email = db.StringField(required=True, unique=True)
     password = db.StringField(required=True)
     meta = {'collection': 'users'}
+
+class File(db.Document):
+    user_id = db.ReferenceField(User, required=True)
+    filename = db.StringField(required=True)
+    file_id = db.StringField(required=True, unique=True)
+    storage_path = db.StringField(required=True)
+    file_type = db.StringField()
+    mime_type = db.StringField(required=True)
+    size = db.IntField()
+    upload_date = db.DateTimeField(default=datetime.datetime.utcnow)
+    is_deleted = db.BooleanField(default=False)
+    meta = {
+        'collection': 'files',
+        'indexes': [
+            {'fields': ('user_id', 'is_deleted')},
+            {'fields': ('user_id', 'filename')},
+        ]
+    }
+
+class FileChat(db.Document):
+    user_id = db.ReferenceField(User, required=True)
+    file_id = db.StringField(required=True)
+    messages = db.ListField(db.DictField(), default=[])
+    updated_at = db.DateTimeField(default=datetime.datetime.utcnow)
+    meta = {
+        'collection': 'file_chats',
+        'indexes': [
+            {'fields': ('user_id', 'file_id'), 'unique': True}
+        ]
+    }
 
 class PlannerTask(db.Document):
     user_id = db.ReferenceField(User, required=True)
@@ -116,11 +147,10 @@ class AIPlan(db.Document):
 class VaultChat(db.Document):
     user_id = db.ReferenceField(User, required=True)
     title = db.StringField(required=True, default="New Chat")
-    messages = db.ListField(db.DictField())  # [{role: "user/ai", message: "..."}]
+    messages = db.ListField(db.DictField())
     created_at = db.DateTimeField(default=datetime.datetime.utcnow)
     updated_at = db.DateTimeField(default=datetime.datetime.utcnow)
     meta = {'collection': 'vault_chats'}
-
 
 # ---------------- HELPERS ----------------
 def parse_iso(dt_str):
@@ -129,16 +159,184 @@ def parse_iso(dt_str):
     except Exception:
         return None
 
+def auto_chat_title():
+    now = datetime.datetime.now()
+    return f"Chat - {now.strftime('%d %b, %I:%M %p')}"
+
+# ---------------- FILE/VAULT ROUTES (From backend_app2) ----------------
+@app.route('/api/vault/files', methods=['GET'])
+@token_required
+def get_user_files(current_user):
+    try:
+        search_query = request.args.get('search', '').strip()
+        query_set = File.objects(user_id=current_user.id, is_deleted=False)
+        if search_query:
+            query_set = query_set.filter(filename__icontains=search_query)
+        files = query_set.order_by('-upload_date')
+        file_list = []
+        for file in files:
+            file_list.append({
+                'id': file.file_id,
+                'name': file.filename,
+                'type': file.file_type,
+                'mime_type': file.mime_type,
+                'size': file.size,
+                'date': file.upload_date.isoformat(),
+            })
+        return jsonify(file_list), 200
+    except Exception as e:
+        print(f"❌ get_user_files error: {e}")
+        return jsonify({'error': 'Could not fetch files'}), 500
+
+@app.route('/api/vault/file/<file_id>/content', methods=['GET'])
+@token_required
+def get_file_content(current_user, file_id):
+    try:
+        file_metadata = File.objects(file_id=file_id, user_id=current_user.id, is_deleted=False).first()
+        if not file_metadata:
+            return jsonify({"error": "File not found or access denied"}), 404
+        target_file_path = file_metadata.storage_path
+        if not os.path.exists(target_file_path):
+            return jsonify({"error": "File content not on server"}), 404
+        return send_file(
+            target_file_path,
+            mimetype=file_metadata.mime_type,
+            as_attachment=False
+        )
+    except Exception as e:
+        print("❌ get_file_content error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/vault/file/<file_id>/delete', methods=['DELETE'])
+@token_required
+def delete_file_permanently(current_user, file_id):
+    try:
+        file = File.objects(file_id=file_id, user_id=current_user.id).first()
+        if not file:
+            return jsonify({"error": "File not found"}), 404
+
+        if os.path.exists(file.storage_path):
+            os.remove(file.storage_path)
+
+        file.delete()
+        FileChat.objects(file_id=file_id, user_id=current_user.id).delete()
+
+        return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print("❌ Permanent delete error:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ---------------- FILE CHAT ENDPOINTS (From backend_app2) ----------------
+@app.route('/api/chat/<file_id>', methods=['GET'])
+@token_required
+def get_chat(current_user, file_id):
+    """Return saved chat for this file (one chat per file)."""
+    try:
+        chat_doc = FileChat.objects(user_id=current_user, file_id=file_id).first()
+        if not chat_doc:
+            return jsonify({"messages": []}), 200
+        return jsonify({"messages": chat_doc.messages or []}), 200
+    except Exception as e:
+        print("❌ get_chat error:", e)
+        return jsonify({"error": "Could not fetch chat"}), 500
+
+@app.route('/api/chat/<file_id>/save', methods=['POST'])
+@token_required
+def save_chat(current_user, file_id):
+    """Save (upsert) the chat messages for the file."""
+    try:
+        body = request.get_json(force=True)
+        messages = body.get('messages', [])
+        if not isinstance(messages, list):
+            return jsonify({"error": "Invalid messages format"}), 400
+
+        chat_doc = FileChat.objects(user_id=current_user, file_id=file_id).first()
+        if chat_doc:
+            chat_doc.messages = messages
+            chat_doc.updated_at = datetime.datetime.utcnow()
+            chat_doc.save()
+        else:
+            FileChat(user_id=current_user, file_id=file_id, messages=messages).save()
+
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        print("❌ save_chat error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/chat/<file_id>/ask', methods=['POST'])
+@token_required
+def ask_chat(current_user, file_id):
+    """Ask a question about the file with context."""
+    try:
+        body = request.get_json(force=True)
+        question = (body.get('question') or '').strip()
+        if not question:
+            return jsonify({"error": "Missing question"}), 400
+
+        chat_doc = FileChat.objects(user_id=current_user, file_id=file_id).first()
+        saved_messages = chat_doc.messages if chat_doc else []
+
+        file_meta = File.objects(file_id=file_id, user_id=current_user.id, is_deleted=False).first()
+        file_text = ""
+        if file_meta and os.path.exists(file_meta.storage_path):
+            path = file_meta.storage_path
+            try:
+                if path.endswith(".pdf"):
+                    with fitz.open(path) as doc:
+                        pages_to_read = min(5, doc.page_count)
+                        file_text = "\n".join([doc.load_page(i).get_text() for i in range(pages_to_read)])
+                elif path.endswith((".pptx", ".ppt")):
+                    prs = Presentation(path)
+                    texts = []
+                    for slide in prs.slides[:10]:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                texts.append(shape.text)
+                    file_text = "\n".join(texts)
+                elif path.endswith(".txt"):
+                    with open(path, "r", encoding="utf-8") as f:
+                        file_text = f.read(4000)
+            except Exception as e:
+                print("⚠️ file_text read error:", e)
+                file_text = ""
+
+        conversation_context = ""
+        for m in saved_messages[-10:]:
+            role = m.get('role', 'user')
+            text = m.get('text', '')
+            conversation_context += f"{role.upper()}: {text}\n"
+
+        prompt = (
+            "You are an assistant that answers questions about the uploaded file.\n\n"
+            f"File content (first chunk):\n{file_text[:4000]}\n\n"
+            f"Conversation so far:\n{conversation_context}\n"
+            f"User: {question}\n\nAnswer concisely and helpfully."
+        )
+
+        try:
+            model = genai.GenerativeModel("gemini-2.5")
+            resp = model.generate_content(prompt)
+            answer = getattr(resp, 'text', None)
+            if not answer and hasattr(resp, 'candidates'):
+                answer = resp.candidates[0].content.parts[0].text
+            if not answer:
+                answer = "No answer generated."
+        except Exception as e:
+            print("⚠️ Gemini ask error:", e)
+            answer = "Sorry – I couldn't reach the AI model right now."
+
+        return jsonify({"answer": answer}), 200
+
+    except Exception as e:
+        print("❌ ask_chat error:", e)
+        return jsonify({"error": str(e)}), 500
+
 # ---------------- PLANNER ROUTES ----------------
 @app.route('/api/planner/generate-plan', methods=['POST'])
 @token_required
 def generate_plan(current_user):
-    """
-    Generate AI-based study plan using Gemini API or fallback template.
-    Includes safe JSON parsing and error handling.
-    """
     try:
-        # ✅ Robust body parsing
         try:
             body = request.get_json(force=True)
             if isinstance(body, str):
@@ -180,7 +378,6 @@ def generate_plan(current_user):
             )
 
         AIPlan(user_id=current_user, prompt=prompt, plan_text=plan_text).save()
-        print(f"✅ Plan generated for {current_user.email}: {goals or subjects}")
         return jsonify({"plan": plan_text}), 200
 
     except Exception as e:
@@ -222,6 +419,15 @@ def update_task(current_user, task_id):
     task.save()
     return jsonify({"ok": True})
 
+@app.route('/api/planner/tasks/<task_id>', methods=['DELETE'])
+@token_required
+def delete_task(current_user, task_id):
+    task = PlannerTask.objects(id=task_id, user_id=current_user).first()
+    if not task:
+        return jsonify({"error": "Not found"}), 404
+    task.delete()
+    return jsonify({"message": "Task deleted successfully"}), 200
+
 @app.route('/api/planner/events', methods=['POST'])
 @token_required
 def create_event(current_user):
@@ -259,7 +465,6 @@ def get_alerts(current_user):
     now = datetime.datetime.utcnow()
     in_one_hour = now + datetime.timedelta(hours=1)
 
-    # existing deadline-based alerts
     expired = PlannerEvent.objects(user_id=current_user, deadline__lte=now, description__ne="Reminder")
     soon = PlannerEvent.objects(user_id=current_user, deadline__gt=now, deadline__lte=in_one_hour, description__ne="Reminder")
 
@@ -282,7 +487,6 @@ def get_alerts(current_user):
         for e in soon
     ]
 
-    # ✅ NEW: include user-added reminders directly as alerts
     reminders = PlannerEvent.objects(user_id=current_user, description="Reminder")
     alerts += [
         {
@@ -296,28 +500,124 @@ def get_alerts(current_user):
 
     return jsonify({"alerts": alerts})
 
-# ---------------- BACKGROUND CHECKER ----------------
-def planner_background_checker(interval=30):
-    def run():
-        while True:
-            try:
-                now = datetime.datetime.utcnow()
-                expired_events = PlannerEvent.objects(deadline__lte=now)
-                for ev in expired_events:
-                    if not Alert.objects(related_event=ev).first():
-                        Alert(user_id=ev.user_id, message=f"Deadline expired: {ev.title}", related_event=ev).save()
-            except Exception as e:
-                print("Planner background checker error:", e)
-            time.sleep(interval)
-    threading.Thread(target=run, daemon=True).start()
+# ---------------- VAULT AI CHAT ROUTES ----------------
+@app.route('/api/vaultai/new', methods=['POST'])
+@token_required
+def create_vault_chat(current_user):
+    chat = VaultChat(
+        user_id=current_user,
+        title=auto_chat_title(),
+        messages=[]
+    ).save()
+    return jsonify({"chatId": str(chat.id), "title": chat.title})
 
-planner_background_checker(30)
+@app.route('/api/vaultai/<chat_id>', methods=['POST'])
+@token_required
+def vault_ai_chat(current_user, chat_id):
+    data = request.get_json()
+    prompt = data.get("prompt", "")
+    chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
+    
+    if not chat:
+        return jsonify({"error": "Chat not found"}), 404
+    
+    is_first_message = not chat.messages
+    
+    chat.messages.append({"role": "user", "message": prompt})
+    
+    try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        contents = [
+            {"role": "user" if m['role'] == 'user' else "model", "parts": [{"text": m['message']}]}
+            for m in chat.messages
+        ]
+        response = model.generate_content(contents)
+        reply = response.text
+    except Exception as e:
+        print("Gemini chat error:", e)
+        reply = f"Gemini error: {str(e)}"
 
-# -------------- auto chat title --------------
-def auto_chat_title():
-    now = datetime.datetime.now()
-    return f"Chat - {now.strftime('%d %b, %I:%M %p')}"
+    chat.messages.append({"role": "ai", "message": reply})
+    
+    if is_first_message:
+        try:
+            title_prompt = f"Create a short, descriptive title (5 words max) for this user query: '{prompt}'"
+            title_response = genai.GenerativeModel("gemini-2.5-flash").generate_content(title_prompt)
+            new_title = title_response.text.strip().replace('"', '').replace("'", '')
+            
+            if new_title and len(new_title) < 50:
+                chat.title = new_title
+            else:
+                chat.title = prompt.split('\n')[0][:50] + '...'
+        except Exception as e:
+            print("Title generation failed:", e)
+            chat.title = prompt.split('\n')[0][:50] + '...'
 
+    chat.updated_at = datetime.datetime.utcnow()
+    chat.save()
+    
+    return jsonify({"response": reply, "newTitle": chat.title})
+
+@app.route('/api/vaultai/rename/<chat_id>', methods=['PATCH'])
+@token_required
+def rename_chat(current_user, chat_id):
+    data = request.get_json()
+    new_title = data.get("title", "").strip()
+    chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
+    if not chat:
+        return jsonify({"error": "Chat not found"}), 404
+    chat.title = new_title
+    chat.save()
+    return jsonify({"success": True})
+
+@app.route('/api/vaultai/chats', methods=['GET'])
+@token_required
+def list_chats(current_user):
+    chats = VaultChat.objects(user_id=current_user).order_by('-updated_at')
+    out = [
+        {"id": str(c.id), "title": c.title, "updated_at": c.updated_at.isoformat()}
+        for c in chats
+    ]
+    return jsonify({"chats": out})
+
+@app.route('/api/vaultai/chat/<chat_id>', methods=['GET'])
+@token_required
+def get_vault_chat(current_user, chat_id):
+    chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
+    if not chat:
+        return jsonify({"error": "Chat not found"}), 404
+    return jsonify({
+        "id": str(chat.id),
+        "title": chat.title,
+        "messages": chat.messages
+    })
+
+@app.route('/api/vaultai/<chat_id>', methods=['DELETE'])
+@token_required
+def delete_chat(current_user, chat_id):
+    try:
+        chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
+        if not chat:
+            return jsonify({"error": "Chat not found"}), 404
+        chat.delete()
+        print(f"✅ VaultChat deleted: {chat_id} for user {current_user.email}")
+        return jsonify({"success": True, "message": "Chat deleted successfully"}), 200
+    except Exception as e:
+        print(f"❌ delete_chat error for {chat_id}:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/vaultai', methods=['POST'])
+def vault_ai():
+    data = request.get_json()
+    prompt = data.get("prompt", "")
+    if not prompt:
+        return jsonify({"response": "Empty prompt received."})
+    try:
+        response = genai.GenerativeModel("gemini-2.5-flash").generate_content(prompt)
+        reply = response.text
+    except Exception as e:
+        reply = f"Gemini error: {str(e)}"
+    return jsonify({"response": reply})
 
 # ---------------- AUTH ENDPOINTS ----------------
 @app.route('/api/auth/register', methods=['POST'])
@@ -345,174 +645,60 @@ def login_user():
 def get_current_user(current_user):
     return jsonify(id=str(current_user.id), firstName=current_user.firstName, email=current_user.email)
 
-@app.route('/api/planner/tasks/<task_id>', methods=['DELETE'])
-@token_required
-def delete_task(current_user, task_id):
-    task = PlannerTask.objects(id=task_id, user_id=current_user).first()
-    if not task:
-        return jsonify({"error": "Not found"}), 404
-    task.delete()
-    return jsonify({"message": "Task deleted successfully"}), 200
-
-@app.route('/api/vaultai/new', methods=['POST'])
-@token_required
-def create_vault_chat(current_user):
-    chat = VaultChat(
-        user_id=current_user,
-        title=auto_chat_title(),
-        messages=[]
-    ).save()
-
-    return jsonify({"chatId": str(chat.id), "title": chat.title})
-
-@app.route('/api/vaultai/<chat_id>', methods=['POST'])
-@token_required
-def vault_ai_chat(current_user, chat_id):
-    data = request.get_json()
-    prompt = data.get("prompt", "")
-    chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
-    
-    if not chat:
-        return jsonify({"error": "Chat not found"}), 404
-    
-    # Check if this is the very first message in a newly created chat
-    is_first_message = not chat.messages
-    
-    chat.messages.append({"role": "user", "message": prompt})
-    
-    try:
-        # Use a model that is efficient for chat
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        
-        # Use the history for context in subsequent calls (optional, but good practice)
-        contents = [
-            {"role": "user" if m['role'] == 'user' else "model", "parts": [{"text": m['message']}]}
-            for m in chat.messages
-        ]
-        
-        # We only pass the new prompt and previous history for generation
-        response = model.generate_content(contents)
-        reply = response.text
-        
-    except Exception as e:
-        print("Gemini chat error:", e)
-        reply = f"Gemini error: {str(e)}"
-
-    chat.messages.append({"role": "ai", "message": reply})
-    
-    # ⭐️ CORE IMPROVEMENT: Automate the title after the first message
-    if is_first_message:
-        try:
-            # Send the prompt to the AI specifically for title generation
-            title_prompt = f"Create a short, descriptive title (5 words max) for this user query: '{prompt}'"
-            title_response = genai.GenerativeModel("gemini-2.5-flash").generate_content(title_prompt)
-            new_title = title_response.text.strip().replace('"', '').replace("'", '')
-            
-            # Use the AI-generated title, but fallback to the first line of the user's prompt
-            if new_title and len(new_title) < 50:
-                 chat.title = new_title
-            else:
-                 chat.title = prompt.split('\n')[0][:50] + '...'
-
-        except Exception as e:
-            # Fallback if title generation fails
-            print("Title generation failed:", e)
-            chat.title = prompt.split('\n')[0][:50] + '...'
-
-    chat.updated_at = datetime.datetime.utcnow()
-    chat.save()
-    
-    # Return the new title so the frontend can update the history sidebar immediately
-    return jsonify({"response": reply, "newTitle": chat.title})
-
-@app.route('/api/vaultai/rename/<chat_id>', methods=['PATCH'])
-@token_required
-def rename_chat(current_user, chat_id):
-    data = request.get_json()
-    new_title = data.get("title", "").strip()
-
-    chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
-    if not chat:
-        return jsonify({"error": "Chat not found"}), 404
-
-    chat.title = new_title
-    chat.save()
-
-    return jsonify({"success": True})
-
-@app.route('/api/vaultai/chats', methods=['GET'])
-@token_required
-def list_chats(current_user):
-    chats = VaultChat.objects(user_id=current_user).order_by('-updated_at')
-    out = [
-        {"id": str(c.id), "title": c.title, "updated_at": c.updated_at.isoformat()}
-        for c in chats
-    ]
-    return jsonify({"chats": out})
-
-@app.route('/api/vaultai/chat/<chat_id>', methods=['GET'])
-@token_required
-def get_chat(current_user, chat_id):
-    chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
-    if not chat:
-        return jsonify({"error": "Chat not found"}), 404
-
-    return jsonify({
-        "id": str(chat.id),
-        "title": chat.title,
-        "messages": chat.messages
-    })
-
-@app.route('/api/vaultai/<chat_id>', methods=['DELETE'])
-@token_required
-def delete_chat(current_user, chat_id):
-    try:
-        chat = VaultChat.objects(id=chat_id, user_id=current_user).first()
-        if not chat:
-            return jsonify({"error": "Chat not found"}), 404
-        chat.delete()
-        print(f"✅ VaultChat deleted: {chat_id} for user {current_user.email}")
-        return jsonify({"success": True, "message": "Chat deleted successfully"}), 200
-    except Exception as e:
-        print(f"❌ delete_chat error for {chat_id}:", e)
-        return jsonify({"error": str(e)}), 500
-
 # ---------------- FILE UPLOAD & AI ROUTES ----------------
 @app.route('/api/upload', methods=['POST'])
 @token_required
 def upload_file(current_user):
-    """Handles file upload and stores it temporarily"""
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files['file']
+    file_type = request.form.get('type', 'Unknown')
     if not file.filename:
         return jsonify({"error": "Empty filename"}), 400
 
-    # Save file with a unique name
+    original_filename = file.filename
     file_id = str(uuid.uuid4())
-    ext = os.path.splitext(file.filename)[1]
-    save_path = os.path.join(TEMP_UPLOAD_FOLDER, f"{file_id}{ext}")
+    ext = os.path.splitext(original_filename)[1]
+
+    save_path = os.path.join(MY_VAULT_FOLDER, f"{file_id}{ext}")
     file.save(save_path)
+    file_size = os.path.getsize(save_path)
 
-    return jsonify({"fileId": file_id}), 200
+    new_file = File(
+        user_id=current_user,
+        filename=original_filename,
+        file_id=file_id,
+        storage_path=save_path,
+        file_type=file_type,
+        mime_type=file.mimetype,
+        size=file_size
+    )
+    new_file.save()
 
+    response_file = {
+        'id': new_file.file_id,
+        'name': new_file.filename,
+        'type': new_file.file_type,
+        'mime_type': new_file.mime_type,
+        'size': new_file.size,
+        'date': new_file.upload_date.isoformat(),
+    }
+
+    return jsonify({"fileId": file_id, "file": response_file}), 200
 
 @app.route('/api/summarize/<file_id>', methods=['GET'])
 @token_required
 def summarize_file(current_user, file_id):
-    """Reads the uploaded file and generates a summary using Gemini"""
     try:
-        # Find the file in temp_uploads
-        target_file = None
-        for f in os.listdir(TEMP_UPLOAD_FOLDER):
-            if f.startswith(file_id):
-                target_file = os.path.join(TEMP_UPLOAD_FOLDER, f)
-                break
-        if not target_file or not os.path.exists(target_file):
-            return jsonify({"error": "File not found"}), 404
+        file_metadata = File.objects(file_id=file_id, user_id=current_user.id).first()
+        if not file_metadata:
+            return jsonify({"error": "File not found in vault"}), 404
 
-        # Extract text (PDF / PPT / TXT supported)
+        target_file = file_metadata.storage_path
+        if not os.path.exists(target_file):
+            return jsonify({"error": "File content not on server"}), 404
+
         text_content = ""
         if target_file.endswith(".pdf"):
             with fitz.open(target_file) as doc:
@@ -529,7 +715,6 @@ def summarize_file(current_user, file_id):
         else:
             return jsonify({"error": "Unsupported file type"}), 400
 
-        # Generate summary using Gemini
         model = genai.GenerativeModel("gemini-2.0-flash")
         prompt = f"Summarize this text concisely:\n\n{text_content[:5000]}"
         response = model.generate_content(prompt)
@@ -541,22 +726,18 @@ def summarize_file(current_user, file_id):
         print("❌ summarize_file error:", e)
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/api/mcqs/<file_id>', methods=['GET'])
 @token_required
 def generate_mcqs(current_user, file_id):
-    """Generates MCQs from the uploaded file using Gemini"""
     try:
-        # Locate file
-        target_file = None
-        for f in os.listdir(TEMP_UPLOAD_FOLDER):
-            if f.startswith(file_id):
-                target_file = os.path.join(TEMP_UPLOAD_FOLDER, f)
-                break
-        if not target_file or not os.path.exists(target_file):
-            return jsonify({"error": "File not found"}), 404
+        file_metadata = File.objects(file_id=file_id, user_id=current_user.id).first()
+        if not file_metadata:
+            return jsonify({"error": "File not found in vault"}), 404
 
-        # Extract text
+        target_file = file_metadata.storage_path
+        if not os.path.exists(target_file):
+            return jsonify({"error": "File content not on server"}), 404
+
         text_content = ""
         if target_file.endswith(".pdf"):
             with fitz.open(target_file) as doc:
@@ -571,7 +752,6 @@ def generate_mcqs(current_user, file_id):
             with open(target_file, "r", encoding="utf-8") as f:
                 text_content = f.read()
 
-        # Gemini prompt
         model = genai.GenerativeModel("gemini-2.0-flash")
         prompt = f"""
         Generate 10 MCQs from the following text.
@@ -592,14 +772,11 @@ def generate_mcqs(current_user, file_id):
         response = model.generate_content(prompt)
         raw = response.text.strip()
 
-        # --- STRONG JSON CLEANER ---
         cleaned = raw.strip().replace("```json", "").replace("```", "")
 
-        # Try parsing
         try:
             mcqs_json = json.loads(cleaned)
         except:
-            # Try extracting JSON manually
             start = cleaned.find("[")
             end = cleaned.rfind("]") + 1
             try:
@@ -612,24 +789,29 @@ def generate_mcqs(current_user, file_id):
     except Exception as e:
         print("❌ generate_mcqs error:", e)
         return jsonify({"error": str(e)}), 500
-    
-@app.route('/api/vaultai', methods=['POST'])
-def vault_ai():
-    data = request.get_json()
-    prompt = data.get("prompt", "")
 
-    if not prompt:
-        return jsonify({"response": "Empty prompt received."})
+# ---------------- BACKGROUND CHECKER ----------------
+def planner_background_checker(interval=30):
+    def run():
+        with app.app_context():
+            while True:
+                try:
+                    now = datetime.datetime.utcnow()
+                    expired_events = PlannerEvent.objects(deadline__lte=now)
+                    for ev in expired_events:
+                        if not Alert.objects(related_event=ev).first():
+                            Alert(user_id=ev.user_id, message=f"Deadline expired: {ev.title}", related_event=ev).save()
+                except Exception as e:
+                    print("Planner background checker error:", e)
+                time.sleep(interval)
+    threading.Thread(target=run, daemon=True).start()
 
-    try:
-        response = genai.GenerativeModel("gemini-2.5-flash").generate_content(prompt)
-        reply = response.text
-    except Exception as e:
-        reply = f"Gemini error: {str(e)}"
-
-    return jsonify({"response": reply})
-
+planner_background_checker(30)
 
 # ---------------- RUN APP ----------------
 if __name__ == '__main__':
+    if not any(t.name == 'PlannerChecker' for t in threading.enumerate()):
+        checker_thread = threading.Thread(target=planner_background_checker, args=(30,), daemon=True, name='PlannerChecker')
+        checker_thread.start()
+
     app.run(host='0.0.0.0', port=5000, debug=True)

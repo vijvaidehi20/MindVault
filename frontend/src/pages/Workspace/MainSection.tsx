@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import VaultAI from './VaultAI';
 import MyVaultView from './MyVaultView';
 import { marked } from 'marked';
-import axios from 'axios'; // Required for PlannerView API calls
+import axios from 'axios';
 
 // ✅ Planner imports
 import AIStudyPlan from '../../pages/Planner/AIStudyPlan';
@@ -14,7 +14,7 @@ import AlertsBox from '../../pages/Planner/AlertsBox';
 import CalendarBox from "../../pages/Planner/CalendarBox";
 import { createEvent, fetchEvents } from '../../api/planner';
 
-// Helper function to get the token (since MainSection needs it too)
+// Helper function to get the token
 const getToken = () => localStorage.getItem('token'); 
 
 // ------------------ Context for Trash ------------------
@@ -24,12 +24,16 @@ export interface MyFile {
   id: string;
   size?: number;
   date?: string;
+  previewUrl?: string | null; 
+  mime_type?: string;
 }
 
 export interface TrashContextType {
   trash: MyFile[];
   moveToTrash: (file: MyFile) => void;
   clearTrash: () => void;
+  deletePermanently: (fileId: string) => void;
+  restoreFile: (fileId: string) => MyFile | undefined;
 }
 
 export const TrashContext = createContext<TrashContextType | null>(null);
@@ -43,11 +47,50 @@ export const useTrash = () => {
 export const TrashProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [trash, setTrash] = useState<MyFile[]>([]);
 
+  const token = localStorage.getItem("token") || "";
+
   const moveToTrash = (file: MyFile) => setTrash(prev => [...prev, file]);
-  const clearTrash = () => setTrash([]);
+
+  // ✅ UPDATED: CLEAR TRASH NOW CALLS BACKEND DELETE
+  const clearTrash = async () => {
+    try {
+      for (const file of trash) {
+        await fetch(`http://localhost:5000/api/vault/file/${file.id}/delete`, {
+          method: "DELETE",
+          headers: { "x-auth-token": token }
+        });
+      }
+    } catch (e) {
+      console.error("Clear Trash Error:", e);
+    }
+    setTrash([]);
+  };
+
+  // ✅ UPDATED: PERMANENT DELETE CALLS BACKEND
+  const deletePermanently = async (fileId: string) => {
+    try {
+      await fetch(`http://localhost:5000/api/vault/file/${fileId}/delete`, {
+        method: "DELETE",
+        headers: { "x-auth-token": token }
+      });
+    } catch (e) {
+      console.error("Permanent Delete Error:", e);
+    }
+
+    setTrash(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  const restoreFile = (fileId: string): MyFile | undefined => {
+    const fileToRestore = trash.find(f => f.id === fileId);
+    if (fileToRestore) {
+      setTrash(prev => prev.filter(f => f.id !== fileId));
+      return fileToRestore;
+    }
+    return undefined;
+  };
 
   return (
-    <TrashContext.Provider value={{ trash, moveToTrash, clearTrash }}>
+    <TrashContext.Provider value={{ trash, moveToTrash, clearTrash, deletePermanently, restoreFile }}>
       {children}
     </TrashContext.Provider>
   );
@@ -152,7 +195,7 @@ const DashboardView: React.FC<{ setCurrentView: (view: string) => void }> = ({ s
           <ActionCard title="Summarize Instantly" description="Upload your notes in PDF, PPT, or image formats and get concise AI-powered summaries." icon="✨" buttonText="Summarize Notes" onButtonClick={handleNavigateToUpload} />
           <ActionCard title="Generate MCQs" description="Turn your study material into personalized multiple-choice questions." icon="🧠" buttonText="Generate MCQs" onButtonClick={handleNavigateToUpload} />
           <ActionCard title="Mind Map" description="Visualize your notes as interactive mind maps." icon="🗺️" buttonText="Create Mind Map" onButtonClick={handleNavigateToUpload} />
-          <ActionCard title="Save Notes" description="Store your processed notes securely." icon="📱" buttonText="Save Notes" onButtonClick={handleActionRequiringFile} />
+          <ActionCard title="Save Notes" description="Store your processed notes securely." icon="💾" buttonText="Save Notes" onButtonClick={handleActionRequiringFile} />
         </div>
       </div>
     </div>
@@ -160,34 +203,75 @@ const DashboardView: React.FC<{ setCurrentView: (view: string) => void }> = ({ s
 };
 
 // ------------------ Trash ------------------
-const TrashView = () => {
-  const { trash, clearTrash } = useTrash();
+const TrashView: React.FC<{ setRestoredFile: (file: MyFile) => void }> = ({ setRestoredFile }) => {
+  const { trash, clearTrash, deletePermanently, restoreFile } = useTrash();
   const [filesInTrash, setFilesInTrash] = useState(trash);
+  const [fileToDelete, setFileToDelete] = useState<MyFile | null>(null);
+
   useEffect(() => setFilesInTrash(trash), [trash]);
 
-  const handleRestore = (file: MyFile) => console.log(`Restoring file: ${file.name}`);
-  const handleDeletePermanently = (fileToDelete: MyFile) => setFilesInTrash(prev => prev.filter(f => f.id !== fileToDelete.id));
-  const handleClearAll = () => { setFilesInTrash([]); clearTrash(); };
+  const handleClearAll = () => {
+    clearTrash();
+    setFilesInTrash([]);
+  };
+
+  const handleRestore = (file: MyFile) => {
+    const restored = restoreFile(file.id);
+    if (restored) {
+      setRestoredFile(restored);
+      setFilesInTrash(prev => prev.filter(f => f.id !== file.id));
+    }
+  };
+
+  const handleDeletePermanentlyConfirmed = (file: MyFile) => {
+    deletePermanently(file.id);
+    setFileToDelete(null);
+  };
+
+  const ConfirmationModal = () => {
+    if (!fileToDelete) return null;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div className="bg-[#18181b] p-6 rounded-xl shadow-2xl max-w-sm w-full border border-red-500">
+          <h3 className="text-xl font-bold text-red-400 mb-4">Confirm Permanent Deletion</h3>
+          <p className="text-gray-300 mb-6">
+            Are you sure you want to permanently delete <strong>{fileToDelete.name}</strong>? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setFileToDelete(null)} className="px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700">
+              Cancel
+            </button>
+            <button onClick={() => handleDeletePermanentlyConfirmed(fileToDelete)} className="px-4 py-2 text-white rounded-lg bg-red-600 hover:bg-red-700">
+              Yes, Delete Permanently
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="p-8 h-full flex flex-col relative">
+      <ConfirmationModal />
+
       <button className="absolute top-4 right-4 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm shadow" onClick={handleClearAll}>
         Clean Trash
       </button>
+
       {filesInTrash.length > 0 ? (
         <div className="w-full mt-8">
           <h2 className="text-3xl font-bold text-white mb-4 text-center">Files in Trash</h2>
           <div className="p-4 rounded-2xl bg-white/10 border border-white/20">
             <ul className="text-gray-400 flex flex-col gap-2">
               {filesInTrash.map((file, i) => (
-                <li key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
+                <li key={file.id} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
                   <div className="flex items-center gap-2">
                     <div className="text-xl">🗑️</div>
                     <span>{file.name} ({file.type || 'File'})</span>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handleRestore(file)} className="text-xl text-gray-400 hover:text-white">🔄</button>
-                    <button onClick={() => handleDeletePermanently(file)} className="text-xl text-gray-400 hover:text-red-500">🗑️</button>
+                    <button onClick={() => handleRestore(file)} className="text-xl text-gray-400 hover:text-white" title="Restore">🔄</button>
+                    <button onClick={() => setFileToDelete(file)} className="text-xl text-gray-400 hover:text-red-500" title="Delete Permanently">🗑️</button>
                   </div>
                 </li>
               ))}
@@ -199,7 +283,7 @@ const TrashView = () => {
           <div className="text-8xl mb-4">🗑️</div>
           <h2 className="text-3xl font-bold text-white text-center">Trash is empty</h2>
           <p className="text-gray-400 mt-2 text-center">
-            When you remove files from your Vault, they’ll appear here.
+            When you remove files from your Vault, they'll appear here.
           </p>
         </div>
       )}
@@ -221,10 +305,8 @@ interface HistoryViewProps {
 const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
     const [chats, setChats] = useState<ChatItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    // ⭐️ NEW STATE for delete confirmation
     const [chatToDelete, setChatToDelete] = useState<ChatItem | null>(null); 
 
-    // Function to fetch the chat list
     const fetchChats = async () => {
         setIsLoading(true);
         const token = getToken();
@@ -252,7 +334,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
         fetchChats();
     }, []);
 
-    // ⭐️ NEW: Function to handle actual deletion
     const handleConfirmDelete = async () => {
         if (!chatToDelete) return;
 
@@ -263,7 +344,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
         }
 
         setIsLoading(true);
-        setChatToDelete(null); // Close confirmation modal immediately
+        setChatToDelete(null);
 
         try {
             const res = await fetch(`http://127.0.0.1:5000/api/vaultai/${chatToDelete.id}`, {
@@ -273,17 +354,15 @@ const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
 
             if (!res.ok) throw new Error("Failed to delete chat from database.");
 
-            // Refresh the list after successful deletion
             await fetchChats();
             alert("Chat deleted successfully!");
             
         } catch (error) {
             console.error("Error deleting chat:", error);
             alert(`Error deleting chat: ${error.message}`);
-            setIsLoading(false); // Restore loading state if fetchChats failed
+            setIsLoading(false);
         }
     };
-
 
     const hasHistory = chats.length > 0;
 
@@ -294,18 +373,17 @@ const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
     return (
         <div className="p-8 h-full flex flex-col text-center relative">
             
-            {/* ⭐️ IMPROVED: Confirmation Dialog Styling */}
             {chatToDelete && (
-                <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"> {/* Higher z-index */}
-                    <div className="bg-[#1e1e2d] border border-gray-700 p-8 rounded-xl shadow-2xl text-white max-w-md w-full mx-4"> {/* Enhanced background, border, shadow */}
+                <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+                    <div className="bg-[#1e1e2d] border border-gray-700 p-8 rounded-xl shadow-2xl text-white max-w-md w-full mx-4">
                         <div className="flex flex-col items-center mb-6">
-                            <span className="text-red-500 text-5xl mb-4 animate-bounce-once">⚠️</span> {/* Warning icon */}
+                            <span className="text-red-500 text-5xl mb-4 animate-bounce-once">⚠️</span>
                             <h3 className="font-bold text-2xl mb-2">Confirm Deletion</h3>
                             <p className="text-gray-300 text-base text-center">
                                 Are you sure you want to delete "<span className="font-semibold text-purple-300">{chatToDelete.title}</span>"? This action cannot be undone.
                             </p>
                         </div>
-                        <div className="flex justify-center space-x-4"> {/* Centered buttons with consistent spacing */}
+                        <div className="flex justify-center space-x-4">
                             <button 
                                 onClick={() => setChatToDelete(null)} 
                                 className="px-6 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition duration-200 ease-in-out text-lg font-medium"
@@ -333,7 +411,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
                                     key={chat.id} 
                                     className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-white/20 transition-colors border-b border-gray-700 last:border-b-0 group"
                                 >
-                                    {/* Clickable area for opening chat */}
                                     <div 
                                         onClick={() => onChatSelect(chat.id)}
                                         className="flex-1 cursor-pointer text-left"
@@ -344,7 +421,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({ onChatSelect }) => {
                                         </span>
                                     </div>
 
-                                    {/* ⭐️ NEW: Delete Button */}
                                     <button
                                         onClick={() => setChatToDelete(chat)}
                                         className="text-gray-400 hover:text-red-500 opacity-70 group-hover:opacity-100 transition-opacity ml-2"
@@ -383,7 +459,6 @@ const PlannerView: React.FC = () => {
         const now = new Date();
         const fr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
-        // NOTE: fetchEvents requires axios to be available, which is now imported at the top.
         const res = await fetchEvents(fr, to); 
         setEvents(res.events || []);
       } catch (e) {
@@ -421,16 +496,14 @@ interface MainSectionProps {
 }
 
 const MainSection: React.FC<MainSectionProps> = ({ currentView, setCurrentView }) => {
-  // ⭐️ NEW STATE: To hold the ID of the chat currently being viewed/edited
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [restoredFile, setRestoredFile] = useState<MyFile | null>(null);
 
-  // Handle click on a chat session from the HistoryView
   const handleChatSelect = (chatId: string) => {
     setActiveChatId(chatId);
-    setCurrentView('vaultAI'); // Switch to the VaultAI view
+    setCurrentView('vaultAI');
   };
 
-  // Handle when VaultAI creates a new chat (to update the activeChatId state)
   const handleNewChatIdCreated = (newId: string) => {
     setActiveChatId(newId);
   }
@@ -438,16 +511,15 @@ const MainSection: React.FC<MainSectionProps> = ({ currentView, setCurrentView }
   const renderContent = () => {
     switch (currentView) {
       case 'myVault':
-        return <MyVaultView />;
+        return <MyVaultView restoredFile={restoredFile} clearRestoredFile={() => setRestoredFile(null)} />;
       case 'trash':
-        return <TrashView />;
+        return <TrashView setRestoredFile={setRestoredFile} />;
       case 'planner':
         return <PlannerView />;
         
       case 'aiBot':
       case 'vaultAI':
         return (
-          // ⭐️ PASS THE ACTIVE CHAT ID AND CALLBACK TO VAULTAI
           <VaultAI 
             initialChatId={activeChatId} 
             onNewChatIdCreated={handleNewChatIdCreated} 
@@ -455,7 +527,6 @@ const MainSection: React.FC<MainSectionProps> = ({ currentView, setCurrentView }
         );
         
       case 'history': 
-        // ⭐️ PASS SELECT HANDLER TO HISTORY VIEW
         return <HistoryView onChatSelect={handleChatSelect} />; 
         
       case 'dashboard':
@@ -464,12 +535,10 @@ const MainSection: React.FC<MainSectionProps> = ({ currentView, setCurrentView }
     }
   };
 
-  // Clear activeChatId when switching to a non-chat view (like Dashboard or History)
   useEffect(() => {
     if (currentView !== 'vaultAI' && currentView !== 'aiBot') {
         setActiveChatId(null);
     }
-    // Clicking 'aiBot' should also start a fresh chat by resetting activeChatId
     if (currentView === 'aiBot' && activeChatId !== null) {
         setActiveChatId(null);
     }
