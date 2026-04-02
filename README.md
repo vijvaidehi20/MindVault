@@ -21,15 +21,6 @@ It leverages advanced AI models to provide **personalized answers from a student
 
 ---
 
-## 🔮 Upcoming Features
-
-- 🎙 Voice note transcription  
-- 📜 Chat history  
-- 👥 Collaborative study tools  
-- 📅 AI-powered calendar planning  
-
----
-
 ## 🛠 Tech Stack
 
 | Layer         | Technology |
