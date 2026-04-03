@@ -38,3 +38,25 @@ It leverages advanced AI models to provide **personalized answers from a student
 ```bash
 git clone https://github.com/vijvaidehi20/MindVault.git
 cd MindVault
+```
+
+---
+
+## Backend
+
+```plaintext
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+
+---
+
+## Frontend
+
+```plaintext
+cd frontend
+npm install
+npm start
+```
+
