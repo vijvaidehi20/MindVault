@@ -2,118 +2,131 @@
 
 # 🧠 MindVault
 
-**Your AI-Powered Personal Knowledge Workspace**
+**AI-Powered Personal Knowledge Workspace for Students**
 
-Transform lectures, notes, and documents into interactive learning tools — summaries, quizzes, mind maps, and a personal AI tutor — all in one place.
+Upload your study materials → Get instant summaries, auto-generated quizzes, and a document-aware AI chatbot — all in one place.
 
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Flask](https://img.shields.io/badge/Flask-2.2-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Gemini](https://img.shields.io/badge/Google%20Gemini-AI-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
-[![License](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+
+[Features](#-features) • [Data Flow](#-data-flow) • [Tech Stack](#-tech-stack) • [Setup](#-setup--installation) • [API Reference](#-api-reference)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+## 📌 Description
 
-- [About](#-about)
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-- [Environment Variables](#-environment-variables)
-- [API Reference](#-api-reference)
-- [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
+Students are overwhelmed with fragmented study tools, scattered PDFs, lengthy slides, and dense textbooks — with no intelligent way to process them. **MindVault** is a full-stack web application that acts as a centralized AI-powered study workspace.
 
----
+Upload any document (PDF, PPT, TXT), and MindVault will:
+- **Summarize** it using Google Gemini AI
+- **Generate quizzes** (MCQs) to test your understanding  
+- Let you **chat with the document** — ask questions and get contextual answers
+- Help you **plan your studies** with AI-generated study plans, tasks, calendar events, and deadline alerts
 
-## 💡 About
-
-Students deal with an overwhelming volume of study materials — scattered PDFs, lengthy lecture slides, and dense textbooks. Traditional tools are fragmented and lack intelligent integration, leading to cognitive overload and wasted time.
-
-**MindVault** solves this by providing a centralized, AI-powered workspace that turns **passive content into active learning tools**. Upload any document, and MindVault will summarize it, generate quizzes, answer your questions from the content, and help you plan your study schedule — all powered by Google's Gemini AI.
+All your files, notes, and progress are stored in a personal vault tied to your account.
 
 ---
 
 ## ✨ Features
 
-### 📄 Smart Document Processing
-Upload PDFs, PowerPoints, or text files and instantly get AI-generated summaries. MindVault extracts and understands your content so you don't have to read everything from scratch.
-
-### 🧪 Auto-Generated Quizzes
-Turn any uploaded document into a set of 10 MCQs with one click. Test your understanding and identify knowledge gaps — no manual effort required.
-
-### 💬 Document-Aware Chat
-Ask questions about any uploaded file and get contextual, accurate answers. MindVault reads the document for you and maintains conversation history per file.
-
-### 🤖 Vault AI — Personal Tutor
-A general-purpose AI chatbot with persistent chat history, auto-generated titles, and multi-session support. Use it as a study companion for any topic.
-
-### 📅 Study Planner
-A full-featured planner with tasks, calendar events, upcoming deadline tracking, and smart alerts. Generate AI-powered study plans based on your goals, subjects, and timeframe.
-
-### 🗂️ My Vault — File Management
-A personal knowledge vault to upload, search, preview, and manage all your documents. Supports in-app file viewing and permanent deletion.
-
-### 🔐 Authentication
-Secure JWT-based authentication with user registration, login, and protected routes.
+| Feature | Description |
+|---------|-------------|
+| 📄 **Document Upload & Storage** | Upload PDFs, PowerPoints, and text files to your personal vault. Search, preview, and manage files. |
+| 📝 **AI Summarization** | Get concise AI-generated summaries of any uploaded document with one click. |
+| 🧪 **Quiz Generation** | Auto-generate MCQs from document content to test your knowledge. |
+| 💬 **Document Chat** | Ask questions about any file — the AI reads the document and answers contextually, with chat history per file. |
+| 📅 **Study Planner** | Create tasks, schedule calendar events, track upcoming deadlines, and get smart alerts. |
+| 🤖 **AI Study Plans** | Generate personalized, day-wise study plans based on your goals, subjects, and timeframe. |
+| 🔐 **Authentication** | Secure JWT-based auth with user registration and login. All data is per-user. |
+| 🔔 **Background Alerts** | A background thread monitors deadlines and auto-creates alerts for expired events. |
 
 ---
 
-## 🏗 Architecture
+## 🔄 Data Flow
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     Frontend                        │
-│          React 19 + TypeScript + Vite               │
-│     Tailwind CSS · Framer Motion · Zustand          │
-│                                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │   Home   │ │Workspace │ │ Planner  │ │  Auth  │ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────┘ │
-│       │            │             │           │      │
-└───────┼────────────┼─────────────┼───────────┼──────┘
-        │            │             │           │
-        ▼            ▼             ▼           ▼
-┌─────────────────────────────────────────────────────┐
-│                  Backend (Flask)                     │
-│                 Port 5000                            │
-│                                                     │
-│  ┌──────────────┐ ┌────────────┐ ┌───────────────┐  │
-│  │  File Upload  │ │  AI Routes │ │  Auth Routes  │  │
-│  │  & Vault API  │ │ Summarize  │ │ Register/Login│  │
-│  │              │ │ MCQ Gen    │ │               │  │
-│  │              │ │ Chat       │ │               │  │
-│  └──────┬───────┘ └─────┬──────┘ └───────┬───────┘  │
-│         │               │                │          │
-│         ▼               ▼                ▼          │
-│  ┌────────────┐  ┌────────────┐  ┌──────────────┐   │
-│  │  MongoDB   │  │ Google     │  │   JWT Auth   │   │
-│  │  (Atlas)   │  │ Gemini API │  │   + bcrypt   │   │
-│  └────────────┘  └────────────┘  └──────────────┘   │
-└─────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                   USER (Browser)                       │
+│                                                        │
+│   Upload File ──→  View Summary ──→  Take Quiz         │
+│       │                                    │           │
+│       ▼                                    ▼           │
+│   Chat with Doc ──→  Plan Studies ──→  Track Deadlines │
+└────────────┬───────────────────────────────┬───────────┘
+             │           REST API            │
+             ▼                               ▼
+┌────────────────────────────────────────────────────────┐
+│                  Flask Backend (:5000)                  │
+│                                                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │  Upload   │  │  AI      │  │  Chat    │  │ Planner│ │
+│  │  & Vault  │  │ Summary  │  │  per     │  │ Tasks  │ │
+│  │  Manager  │  │ MCQ Gen  │  │  File    │  │ Events │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └───┬────┘ │
+│       │              │             │             │      │
+│       ▼              ▼             ▼             ▼      │
+│  ┌─────────┐   ┌──────────┐  ┌─────────┐  ┌─────────┐ │
+│  │MongoDB  │   │ Gemini   │  │ MongoDB │  │ MongoDB │ │
+│  │ files   │   │   API    │  │file_chats│  │ tasks / │ │
+│  │collection│  │(2.0/2.5) │  │collection│  │ events  │ │
+│  └─────────┘   └──────────┘  └─────────┘  └─────────┘ │
+└────────────────────────────────────────────────────────┘
+
+Upload Flow:
+  User → POST /api/upload → File saved to myvault_files/ → Metadata stored in MongoDB
+
+Summarize Flow:
+  User → GET /api/summarize/:id → Extract text (PyMuPDF/python-pptx) → Gemini AI → Summary
+
+Quiz Flow:
+  User → GET /api/mcqs/:id → Extract text → Gemini AI → JSON MCQs array
+
+Chat Flow:
+  User → POST /api/chat/:id/ask → Load file text + chat history → Gemini AI → Answer
+
+Planner Flow:
+  User → POST /api/planner/generate-plan → Gemini AI → Markdown study plan
 ```
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | React 19, TypeScript, Vite | SPA with modern React features |
-| **Styling** | Tailwind CSS, Framer Motion | Responsive design & animations |
-| **State** | Zustand, React Context | Global & auth state management |
-| **Routing** | React Router v7 | Client-side navigation |
-| **Backend** | Flask (Python) | REST API server |
-| **Database** | MongoDB (via MongoEngine) | Document storage & user data |
-| **AI Engine** | Google Gemini (2.0 Flash / 2.5) | Summarization, MCQs, chat |
-| **Auth** | JWT + bcrypt | Stateless authentication |
-| **File Parsing** | PyMuPDF, python-pptx | PDF & PowerPoint text extraction |
+### Frontend
+| Technology | Purpose |
+|-----------|---------|
+| **React 19** | UI framework with functional components and hooks |
+| **TypeScript** | Type-safe development |
+| **Vite** | Fast dev server and build tool |
+| **Tailwind CSS** | Utility-first responsive styling |
+| **Framer Motion** | Smooth page transitions and animations |
+| **React Router v7** | Client-side routing |
+| **Zustand** | Lightweight global state management |
+| **Axios** | HTTP client for API calls |
+| **Lucide React** | Icon library |
+
+### Backend
+| Technology | Purpose |
+|-----------|---------|
+| **Flask** | Python web framework (REST API) |
+| **Flask-MongoEngine** | MongoDB ODM for Flask |
+| **Google Generative AI** | Gemini API for summarization, MCQs, chat, study plans |
+| **PyMuPDF (fitz)** | PDF text extraction |
+| **python-pptx** | PowerPoint text extraction |
+| **PyJWT** | JSON Web Token authentication |
+| **bcrypt** | Password hashing |
+| **Flask-CORS** | Cross-origin request handling |
+
+### Database & Infrastructure
+| Technology | Purpose |
+|-----------|---------|
+| **MongoDB Atlas** | Cloud-hosted NoSQL database |
+| **Node.js + Express** | Secondary auth server |
 
 ---
 
@@ -121,56 +134,56 @@ Secure JWT-based authentication with user registration, login, and protected rou
 
 ```
 MindVault/
-├── frontend/                    # React + TypeScript client
+│
+├── frontend/                        # React + TypeScript SPA
 │   ├── src/
-│   │   ├── api/                 # Axios API service layer
-│   │   ├── assets/              # Static assets (images, icons)
-│   │   ├── components/          # Shared UI components
-│   │   │   ├── Navbar.tsx
-│   │   │   ├── Footer.tsx
-│   │   │   ├── Layout.tsx
-│   │   │   ├── FeatureCard.tsx
-│   │   │   └── ProtectedRoute.tsx
-│   │   ├── context/             # React Context (AuthContext)
+│   │   ├── components/
+│   │   │   ├── Navbar.tsx           # Navigation bar
+│   │   │   ├── Footer.tsx           # Page footer
+│   │   │   ├── Layout.tsx           # Shared layout wrapper
+│   │   │   ├── FeatureCard.tsx      # Landing page feature cards
+│   │   │   └── ProtectedRoute.tsx   # Auth route guard
 │   │   ├── pages/
-│   │   │   ├── Home.tsx         # Landing page
-│   │   │   ├── About.tsx        # About page
-│   │   │   ├── login.tsx        # Login page
-│   │   │   ├── signup.tsx       # Registration page
-│   │   │   ├── uploadNotes.tsx  # File upload interface
-│   │   │   ├── Workspace/       # Main workspace module
-│   │   │   │   ├── Workspace.tsx
-│   │   │   │   ├── Dashboard.tsx
-│   │   │   │   ├── Sidebar.tsx
-│   │   │   │   ├── MainSection.tsx
-│   │   │   │   ├── MyVaultView.tsx
-│   │   │   │   ├── VaultAI.tsx
-│   │   │   │   └── ChatModal.tsx
-│   │   │   └── Planner/         # Study planner module
-│   │   │       ├── AIStudyPlan.tsx
-│   │   │       ├── CalendarBox.tsx
-│   │   │       ├── MyTasks.tsx
-│   │   │       ├── AlertsBox.tsx
+│   │   │   ├── Home.tsx             # Landing page
+│   │   │   ├── About.tsx            # About page
+│   │   │   ├── login.tsx            # Login form
+│   │   │   ├── signup.tsx           # Registration form
+│   │   │   ├── uploadNotes.tsx      # File upload interface
+│   │   │   ├── Workspace/           # Main app workspace
+│   │   │   │   ├── Workspace.tsx    # Workspace shell
+│   │   │   │   ├── Dashboard.tsx    # User dashboard
+│   │   │   │   ├── Sidebar.tsx      # Navigation sidebar
+│   │   │   │   ├── MainSection.tsx  # Primary content area
+│   │   │   │   ├── MyVaultView.tsx  # File management & viewer
+│   │   │   │   ├── VaultAI.tsx      # AI chat interface
+│   │   │   │   └── ChatModal.tsx    # Per-file chat modal
+│   │   │   └── Planner/            # Study planner module
+│   │   │       ├── AIStudyPlan.tsx  # AI plan generator UI
+│   │   │       ├── CalendarBox.tsx  # Calendar widget
+│   │   │       ├── MyTasks.tsx      # Task management
+│   │   │       ├── AlertsBox.tsx    # Deadline alerts
 │   │   │       └── UpcomingDeadlines.tsx
-│   │   ├── utils/               # Helper utilities
-│   │   ├── App.tsx              # Root component & routing
-│   │   └── main.tsx             # Entry point
+│   │   ├── api/
+│   │   │   └── planner.ts          # Planner API service
+│   │   ├── context/
+│   │   │   └── AuthContext.tsx      # Auth state provider
+│   │   ├── App.tsx                  # Root routes
+│   │   └── main.tsx                 # Entry point
 │   ├── tailwind.config.js
 │   ├── vite.config.ts
 │   └── package.json
 │
-├── backend/                     # Flask API server
-│   ├── backend_app.py           # Main application (routes, models, AI logic)
-│   ├── server.js                # Node.js Express server (auth, vault proxy)
+├── backend/                         # Flask + Express API
+│   ├── backend_app.py               # Main Flask app (all routes & models)
+│   ├── server.js                    # Express server (auth proxy)
 │   ├── models/
-│   │   └── User.js              # Mongoose user model
+│   │   └── User.js                  # Mongoose user schema
 │   ├── routes/
-│   │   ├── auth.js              # Express auth routes
-│   │   └── planner_routes.py    # Planner route definitions
-│   ├── myvault_files/           # Uploaded file storage
-│   ├── temp_uploads/            # Temporary upload staging
-│   ├── requirements.txt         # Python dependencies
-│   └── package.json             # Node.js dependencies
+│   │   ├── auth.js                  # Express auth routes
+│   │   └── planner_routes.py        # Planner route definitions
+│   ├── myvault_files/               # Uploaded file storage (gitignored)
+│   ├── requirements.txt             # Python dependencies
+│   └── package.json                 # Node dependencies
 │
 ├── .gitignore
 ├── package.json
@@ -179,19 +192,21 @@ MindVault/
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Setup & Installation
 
 ### Prerequisites
 
-- **Node.js** ≥ 18
-- **Python** ≥ 3.9
-- **MongoDB** (local or [MongoDB Atlas](https://www.mongodb.com/atlas))
-- **Google Gemini API Key** → [Get one here](https://ai.google.dev/)
+| Requirement | Version |
+|------------|---------|
+| Node.js | ≥ 18.x |
+| Python | ≥ 3.9 |
+| MongoDB | Atlas or local |
+| Google Gemini API Key | [Get one →](https://ai.google.dev/) |
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/MindVault.git
+git clone https://github.com/vijvaidehi20/MindVault.git
 cd MindVault
 ```
 
@@ -200,170 +215,139 @@ cd MindVault
 ```bash
 cd backend
 
-# Create and activate a Python virtual environment
+# Create Python virtual environment
 python -m venv venv
-source venv/bin/activate        # macOS / Linux
-# venv\Scripts\activate         # Windows
+source venv/bin/activate          # macOS/Linux
+# venv\Scripts\activate           # Windows
 
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Install Node.js dependencies (for the Express auth server)
-npm install
-
-# Create environment file
-cp .env.example .env
-# Edit .env with your actual values (see Environment Variables section)
-```
-
-### 3. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
+# Install Node dependencies (for Express auth server)
 npm install
 ```
 
-### 4. Run the Application
+### 3. Configure Environment Variables
 
-Open **three terminal windows**:
-
-```bash
-# Terminal 1 — Flask API server (AI, files, planner)
-cd backend
-source venv/bin/activate
-python backend_app.py
-# → Runs on http://localhost:5000
-
-# Terminal 2 — Express server (auth)
-cd backend
-node server.js
-# → Runs on http://localhost:5000 (or configured port)
-
-# Terminal 3 — React dev server
-cd frontend
-npm run dev
-# → Runs on http://localhost:5173
-```
-
----
-
-## 🔑 Environment Variables
-
-Create a `.env` file in the `backend/` directory:
+Create a `.env` file inside `backend/`:
 
 ```env
-GEMINI_API_KEY=your_google_gemini_api_key
-MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/mindvault_db
-JWT_SECRET=your_jwt_secret_key
+GEMINI_API_KEY=your_gemini_api_key_here
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mindvault_db
+JWT_SECRET=your_jwt_secret_here
 PORT=5000
 ```
 
-> ⚠️ **Never commit `.env` to version control.** It is already listed in `.gitignore`.
+> ⚠️ **Do NOT commit the `.env` file.** It is already in `.gitignore`.
+
+### 4. Frontend Setup
+
+```bash
+cd frontend
+npm install
+```
+
+### 5. Run the Application
+
+Start **two terminals**:
+
+```bash
+# Terminal 1 — Backend (Flask)
+cd backend
+source venv/bin/activate
+python backend_app.py
+# → http://localhost:5000
+```
+
+```bash
+# Terminal 2 — Frontend (Vite)
+cd frontend
+npm run dev
+# → http://localhost:5173
+```
+
+Open **http://localhost:5173** in your browser.
 
 ---
 
 ## 📡 API Reference
 
-### Authentication
+All protected routes require the header: `Authorization: Bearer <token>`
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Register a new user |
-| `POST` | `/api/auth/login` | Login & receive JWT token |
-| `GET` | `/api/auth/me` | Get current user profile 🔒 |
+### Auth
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | ❌ | Register new user |
+| POST | `/api/auth/login` | ❌ | Login, returns JWT |
+| GET | `/api/auth/me` | ✅ | Get current user profile |
 
 ### File Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/upload` | Upload a file (PDF, PPT, TXT) 🔒 |
-| `GET` | `/api/vault/files` | List user's uploaded files 🔒 |
-| `GET` | `/api/vault/file/:id/content` | Download/preview a file 🔒 |
-| `DELETE` | `/api/vault/file/:id/delete` | Permanently delete a file 🔒 |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/upload` | ✅ | Upload a file (PDF/PPT/TXT) |
+| GET | `/api/vault/files` | ✅ | List all user files (supports `?search=`) |
+| GET | `/api/vault/file/:id/content` | ✅ | Download/preview file |
+| DELETE | `/api/vault/file/:id/delete` | ✅ | Permanently delete file |
 
 ### AI Features
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/summarize/:file_id` | AI-generated summary of a file 🔒 |
-| `GET` | `/api/mcqs/:file_id` | Generate 10 MCQs from a file 🔒 |
-| `POST` | `/api/chat/:file_id/ask` | Ask a question about a file 🔒 |
-| `GET` | `/api/chat/:file_id` | Get saved chat for a file 🔒 |
-| `POST` | `/api/chat/:file_id/save` | Save chat messages for a file 🔒 |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/summarize/:file_id` | ✅ | AI summary of uploaded file |
+| GET | `/api/mcqs/:file_id` | ✅ | Generate MCQs from file content |
 
-### Vault AI (General Chat)
+### Document Chat
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/vaultai/new` | Create a new chat session 🔒 |
-| `GET` | `/api/vaultai/chats` | List all chat sessions 🔒 |
-| `GET` | `/api/vaultai/chat/:id` | Get a specific chat 🔒 |
-| `POST` | `/api/vaultai/:id` | Send a message in a chat 🔒 |
-| `PATCH` | `/api/vaultai/rename/:id` | Rename a chat session 🔒 |
-| `DELETE` | `/api/vaultai/:id` | Delete a chat session 🔒 |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/chat/:file_id/ask` | ✅ | Ask a question about a file |
+| GET | `/api/chat/:file_id` | ✅ | Get saved chat history for file |
+| POST | `/api/chat/:file_id/save` | ✅ | Save chat messages for file |
 
 ### Study Planner
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/planner/generate-plan` | Generate an AI study plan 🔒 |
-| `POST` | `/api/planner/tasks` | Create a task 🔒 |
-| `GET` | `/api/planner/tasks` | List all tasks 🔒 |
-| `PATCH` | `/api/planner/tasks/:id` | Update a task 🔒 |
-| `DELETE` | `/api/planner/tasks/:id` | Delete a task 🔒 |
-| `POST` | `/api/planner/events` | Create a calendar event 🔒 |
-| `GET` | `/api/planner/events` | List calendar events 🔒 |
-| `GET` | `/api/planner/upcoming-deadlines` | Get upcoming deadlines 🔒 |
-| `GET` | `/api/planner/alerts` | Get deadline & reminder alerts 🔒 |
-
-> 🔒 = Requires `Authorization: Bearer <token>` header
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/planner/generate-plan` | ✅ | Generate AI study plan |
+| POST | `/api/planner/tasks` | ✅ | Create a new task |
+| GET | `/api/planner/tasks` | ✅ | List all tasks |
+| PATCH | `/api/planner/tasks/:id` | ✅ | Update task (title/details/done) |
+| POST | `/api/planner/events` | ✅ | Create calendar event |
+| GET | `/api/planner/events` | ✅ | List calendar events |
+| GET | `/api/planner/upcoming-deadlines` | ✅ | Get future deadlines |
+| GET | `/api/planner/alerts` | ✅ | Get expired/upcoming/reminder alerts |
 
 ---
 
-## 🗄️ Database Models
+## 🗄️ Database Collections
 
-| Collection | Fields | Description |
-|------------|--------|-------------|
-| `users` | firstName, email, password | User accounts |
-| `files` | user_id, filename, file_id, storage_path, file_type, mime_type, size | Uploaded documents |
-| `file_chats` | user_id, file_id, messages[] | Per-file chat history |
-| `vault_chats` | user_id, title, messages[] | General AI chat sessions |
-| `planner_tasks` | user_id, title, details, done | To-do items |
-| `planner_events` | user_id, title, description, deadline | Calendar events |
-| `planner_alerts` | user_id, message, related_event, read | Notification alerts |
-| `ai_plans` | user_id, prompt, plan_text | Saved AI study plans |
+| Collection | Key Fields |
+|------------|-----------|
+| `users` | firstName, email, password (hashed) |
+| `files` | user_id, filename, file_id, storage_path, mime_type, size, upload_date |
+| `file_chats` | user_id, file_id, messages[], updated_at |
+| `planner_tasks` | user_id, title, details, done |
+| `planner_events` | user_id, title, description, deadline |
+| `planner_alerts` | user_id, message, related_event, read |
+| `ai_plans` | user_id, prompt, plan_text |
 
 ---
 
 ## 🔮 Roadmap
 
-- [ ] 🎙 Voice note transcription & audio file support
+- [ ] 🎙 Voice note transcription & audio support
 - [ ] 📜 Global search across all documents
 - [ ] 👥 Collaborative study rooms
-- [ ] 📅 AI-powered calendar planning with smart scheduling
 - [ ] 📊 Study analytics & progress tracking
-- [ ] 🌐 Multi-language support
 - [ ] 📱 Mobile-responsive PWA
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! To get started:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ---
 
 <div align="center">
 
-Built with ❤️ using React, Flask, and Google Gemini
+**Built with ❤️ using React, Flask & Google Gemini**
 
 </div>
 ]]>
